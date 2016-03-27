@@ -36,10 +36,13 @@ void setup() {
 
 volatile int line = 0;
 volatile int pulse = 0;
-volatile int incx = 1;
-volatile int incy = 1;
-volatile int x = 0;
-volatile int y = 20;
+volatile float incx = 1;
+volatile float incy = 0.2;
+volatile byte x = 0;
+volatile byte y = 0;
+volatile byte currentLine;
+volatile float _x = 0;
+volatile float _y = 0;
 
 void VSync() {
   pulse++;
@@ -67,6 +70,12 @@ void PostPulse() {
 void Frame() {
   line++;
 
+  if(line == 1) {
+    // sync ball x with displayed value
+    x = _x;
+    y = _y;
+  }
+
   if(line == 304) {
     pulse = 1;
     state = PrePulse;
@@ -75,8 +84,9 @@ void Frame() {
   }
 
   else {
-    if(line > 40) {
-      _delay_us(12);
+#define FIRST_LINE 30
+    if(line >= FIRST_LINE && line < 255 + FIRST_LINE) {
+      _delay_us(5);
 
 /*
       if(line - 40 >= y && line -40 < y + 8) {
@@ -99,30 +109,43 @@ void Frame() {
         }
       }
 */
+      currentLine = line - FIRST_LINE;
       __asm__ __volatile__(
+        "lds r16, currentLine\n"
+        "lds r17, y\n"
+        "cp r16, r17\n"
+        "brlo endLine\n"
+        "ldi r18, 4\n"
+        "add r17, r18\n" // r17 = y + 4
+        "cp r16, r17\n"
+        "brsh endLine\n"
+        
+        "ldi r16, 0\n"
+        "loop0:\n"
+        "nop\n"
+        "lds r17, x\n"
+        "cp r16, r17\n"
+        "breq drawBall\n"
+        "inc r16\n"
+        "rjmp loop0\n"        
+        "drawBall:\n"
         "sbi %0, %1\n"
-        "nop\n\t"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"
+        "nop\n"       
+        "endLine:\n" 
         "cbi %0, %1\n"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
-        "nop\n\t"
         :: "I" (_SFR_IO_ADDR(PORTB)), "I" (PORTB2)
         );
       
-      PORTB &= ~(1 << 2);
-      
+      PORTB &= ~(1 << 2); 
     }
   }
 }
@@ -144,16 +167,16 @@ ISR(TIMER1_OVF_vect) {
 }
 
 void loop() {
-  x += incx;
-  y += incy;
+  _x += incx;
+  _y += incy;
 
-  if(x > 50 || x < 1) {
+  if(_x > 80 || _x < 0) {
     incx *= -1;
   } 
-  if(y > 200 || y < 1) {
+  if(_y > 255 || _y < 0) {
     incy *= -1;
   }
-  _delay_us(64 * 200);
+  _delay_us(64 * 128);
 }
 
 
